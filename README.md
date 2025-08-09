@@ -35,12 +35,70 @@ python -m mcp_memory.server
 ```
 
 4) Expose publicly for Puch (HTTPS)
-- Use ngrok or deploy to a cloud provider
+- Use a cloud provider or reverse proxy (see AWS section below)
 
 5) Connect from Puch
 ```
 /mcp connect https://your-domain.ngrok.app/mcp your_secret_token_here
 ```
+
+### Docker (local)
+
+```bash
+# Build
+docker build -t memory-plus .
+
+# Run (app only)
+docker run -p 8086:8086 --env-file .env -v $(pwd)/data:/app/data -v $(pwd)/logs:/app/logs memory-plus
+
+# Or via docker-compose with NGINX reverse proxy on :80
+docker compose up -d
+```
+
+## Deploy to AWS (EC2 + NGINX + your subdomain)
+
+High level:
+- Provision EC2 (t2.micro) with a security group allowing 22/tcp and 80/tcp
+- SSH into EC2, install Docker & Compose
+- Clone repo, create `.env` (AUTH_TOKEN, etc.)
+- `docker compose up -d` (starts app + NGINX)
+- Point your subdomain (e.g., `mcp.tanmay.space`) A record to the EC2 public IP
+- Optionally attach an Elastic IP to keep the IP stable
+
+Commands on EC2 (Amazon Linux 2023):
+```bash
+sudo yum update -y
+# Docker
+sudo amazon-linux-extras enable docker
+sudo yum install -y docker git
+sudo service docker start
+sudo usermod -aG docker $USER
+newgrp docker
+# Docker Compose v2
+DOCKER_CONFIG=${DOCKER_CONFIG:-$HOME/.docker}
+mkdir -p $DOCKER_CONFIG/cli-plugins
+curl -SL https://github.com/docker/compose/releases/download/v2.27.0/docker-compose-linux-x86_64 -o $DOCKER_CONFIG/cli-plugins/docker-compose
+chmod +x $DOCKER_CONFIG/cli-plugins/docker-compose
+
+# Clone & run
+git clone <your-repo-url> && cd <repo>
+cat > .env <<EOF
+AUTH_TOKEN=yourtoken
+HOST=0.0.0.0
+PORT=8086
+DB_PATH=/app/data/memory.db
+EOF
+mkdir -p data logs
+docker compose up -d
+```
+
+DNS setup (Hostinger):
+- Create an A record for `mcp.tanmay.space` pointing to your EC2 Elastic IP
+- Wait for DNS to propagate
+
+HTTPS (recommended):
+- Simplest: attach an AWS Application Load Balancer with ACM cert for `mcp.tanmay.space`, forward to instance:80
+- Or terminate TLS inside NGINX (use certbot and mount certs into the nginx container)
 
 ## Tools (Phase 1)
 - `memory_store(content: str, tags?: list[str], context?: str)`

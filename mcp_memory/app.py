@@ -77,8 +77,9 @@ def create_app() -> FastAPI:
                 content=JsonRpcResponse(id=rpc.id, error={"code": -32600, "message": "Only JSON-RPC 2.0 is supported", "data": {"request_id": req_id}}).model_dump(),
             )
 
-        # Rate limit per user/ip key
-        client_ip = request.client.host if request.client else "unknown"
+        # Rate limit per user/ip key (respect X-Forwarded-For if behind proxy)
+        xff = request.headers.get("x-forwarded-for")
+        client_ip = (xff.split(",")[0].strip() if xff else (request.client.host if request.client else "unknown"))
         key = f"{client_ip}:{x_user_id or 'default'}"
         if not limiter.allow(key):
             req_id = str(uuid.uuid4())
