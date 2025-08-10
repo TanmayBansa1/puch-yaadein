@@ -23,9 +23,15 @@ from .linkbrain.tools import (
     tool_link_get_summary,
     tool_link_digest,
 )
+from .validate import tool_validate
 
 
 TOOLS: Dict[str, Dict[str, Any]] = {
+    "validate": {
+        "description": "Return the user's phone number for bearer token validation (required by Puch)",
+        "parameters": {"type": "object", "properties": {}},
+        "handler": lambda user, params: tool_validate(user, params),
+    },
     "memory_store": {
         "description": (
             "Store a memory with optional tags and context. "
