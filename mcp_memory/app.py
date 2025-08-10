@@ -9,7 +9,8 @@ from fastapi.responses import JSONResponse
 
 from .auth import ensure_bearer_auth
 from .config import HOST, PORT
-from .db import init_db
+from .memory.repository import init_db as init_memory_db
+from .linkbrain.repository import init_link_db
 from .jsonrpc import JsonRpcRequest, JsonRpcResponse
 from .registry import TOOLS
 from .utils import get_user_scope
@@ -17,7 +18,8 @@ from .ratelimit import RateLimiter
 
 
 def create_app() -> FastAPI:
-    init_db()
+    init_memory_db()
+    init_link_db()
     app = FastAPI(title="Memory-Plus MCP Server", version="0.1.0")
     # Logging: console + file
     logs_dir = os.path.join(os.getcwd(), "logs")
