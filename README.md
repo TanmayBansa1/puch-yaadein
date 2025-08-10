@@ -23,13 +23,14 @@ pip install -r requirements.txt
 ```
 
 2) Configure environment
-Create a `.env` file with at least `AUTH_TOKEN` set:
+Create a `.env` file with at least `AUTH_TOKEN` and `USER_PHONE` set:
 ```bash
 cat > .env <<EOF
 AUTH_TOKEN=your_secret_token_here
 HOST=0.0.0.0
 PORT=8086
 DB_PATH=./memory.db
+USER_PHONE=919876543210
 EOF
 ```
 
@@ -45,6 +46,7 @@ python -m mcp_memory.server
 5) Connect from Puch
 ```
 /mcp connect https://your-domain.ngrok.app/mcp your_secret_token_here
+# The server exposes a required 'validate' tool that returns USER_PHONE for authentication.
 ```
 
 ### Docker (local)
