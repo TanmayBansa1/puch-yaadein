@@ -1,17 +1,37 @@
 from typing import Any, Dict, List
 
-from .tools import (
+from .memory.tools import (
     tool_memory_store,
     tool_memory_query,
     tool_memory_list,
     tool_memory_update,
     tool_memory_delete,
     tool_memory_suggest,
+    tool_memory_export,
+    tool_memory_stats,
+    tool_memory_context,
+    tool_memory_summary,
 )
-from .tools_extra import tool_memory_export, tool_memory_stats, tool_memory_context, tool_memory_summary
+from .linkbrain.tools import (
+    tool_link_save,
+    tool_link_fetch,
+    tool_link_list,
+    tool_link_query,
+    tool_link_delete,
+    tool_link_summarize,
+    tool_link_store_summary,
+    tool_link_get_summary,
+    tool_link_digest,
+)
+from .validate import tool_validate
 
 
 TOOLS: Dict[str, Dict[str, Any]] = {
+    "validate": {
+        "description": "Return the user's phone number for bearer token validation (required by Puch)",
+        "parameters": {"type": "object", "properties": {}},
+        "handler": lambda user, params: tool_validate(user, params),
+    },
     "memory_store": {
         "description": (
             "Store a memory with optional tags and context. "
@@ -140,6 +160,124 @@ TOOLS: Dict[str, Dict[str, Any]] = {
             }
         },
         "handler": lambda user, params: tool_memory_summary(user, params.get("range", "last_week"))
+    },
+    # LinkBrain tools
+    "link_save": {
+        "description": (
+            "Save a URL to your reading library; fetch and clean the page content (Medium, Hashnode, blogs, docs). "
+            "Triggers: save this link, add to reading list, remember this article."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string"},
+                "tags": {"type": "array", "items": {"type": "string"}},
+                "title": {"type": "string", "description": "Optional custom title"},
+                "user": {"type": "string"}
+            },
+            "required": ["url"]
+        },
+        "handler": lambda user, params: tool_link_save(user, params.get("url"), params.get("tags"), params.get("title"))
+    },
+    "link_fetch": {
+        "description": "Fetch a saved link with cleaned text and metadata",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string"},
+                "user": {"type": "string"}
+            },
+            "required": ["url"]
+        },
+        "handler": lambda user, params: tool_link_fetch(user, params.get("url"))
+    },
+    "link_list": {
+        "description": "List saved links (optionally by tag)",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "limit": {"type": "integer", "default": 20},
+                "offset": {"type": "integer", "default": 0},
+                "tag": {"type": "string"},
+                "user": {"type": "string"}
+            }
+        },
+        "handler": lambda user, params: tool_link_list(user, int(params.get("limit", 20)), int(params.get("offset", 0)), params.get("tag"))
+    },
+    "link_query": {
+        "description": "Search across all saved links with full-text (title/byline/site/tags/content)",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string"},
+                "limit": {"type": "integer", "default": 20},
+                "user": {"type": "string"}
+            },
+            "required": ["query"]
+        },
+        "handler": lambda user, params: tool_link_query(user, params.get("query"), int(params.get("limit", 20)))
+    },
+    "link_delete": {
+        "description": "Delete a saved link by id (dangerous; confirm)",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "id": {"type": "integer"},
+                "user": {"type": "string"}
+            },
+            "required": ["id"]
+        },
+        "handler": lambda user, params: tool_link_delete(user, int(params.get("id")))
+    },
+    "link_summarize": {
+        "description": (
+            "Prepare cleaned article text for summarization (saves & cleans if needed). "
+            "Usage: call link_summarize to get 'content', then have the assistant summarize that text, "
+            "then call link_store_summary with {url, summary} to persist."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string"},
+                "style": {"type": "string", "description": "Optional style/tone hint for the summary"},
+                "user": {"type": "string"}
+            },
+            "required": ["url"]
+        },
+        "handler": lambda user, params: tool_link_summarize(user, params.get("url"), params.get("style"))
+    },
+    "link_store_summary": {
+        "description": (
+            "Store a model-generated summary for a URL so it can be reused later. "
+            "Call this right after summarizing the 'content' returned by link_summarize (or link_fetch)."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string"},
+                "summary": {"type": "string"},
+                "user": {"type": "string"}
+            },
+            "required": ["url", "summary"]
+        },
+        "handler": lambda user, params: tool_link_store_summary(user, params.get("url"), params.get("summary"))
+    },
+    "link_get_summary": {
+        "description": "Get the stored summary for a URL (fast path).",
+        "parameters": {
+            "type": "object",
+            "properties": {"url": {"type": "string"}, "user": {"type": "string"}},
+            "required": ["url"]
+        },
+        "handler": lambda user, params: tool_link_get_summary(user, params.get("url"))
+    },
+    "link_digest": {
+        "description": "Get a digest of recent links with stored summaries (optionally filter by tag).",
+        "parameters": {
+            "type": "object",
+            "properties": {"limit": {"type": "integer", "default": 5}, "tag": {"type": "string"}, "user": {"type": "string"}}
+        },
+        "handler": lambda user, params: tool_link_digest(user, int(params.get("limit", 5)), params.get("tag"))
     }
 }
 

@@ -1,7 +1,7 @@
 import sqlite3
-from typing import Iterable
+from typing import Optional
 
-from .config import DB_PATH
+from ..config import DB_PATH
 
 
 def get_db_connection() -> sqlite3.Connection:

@@ -1,4 +1,4 @@
-# Memory-Plus MCP Server (Phase 1)
+# Memory-Plus MCP Server + LinkBrain
 
 AI-powered local memory + contextual recall as an MCP server for Puch AI. MCP-only implementation (no web UI). Built to maximize user adoption for the Puch Hackathon.
 
@@ -23,9 +23,15 @@ pip install -r requirements.txt
 ```
 
 2) Configure environment
+Create a `.env` file with at least `AUTH_TOKEN` and `USER_PHONE` set:
 ```bash
-cp .env.example .env
-# edit .env and set AUTH_TOKEN=your_secret_token_here
+cat > .env <<EOF
+AUTH_TOKEN=your_secret_token_here
+HOST=0.0.0.0
+PORT=8086
+DB_PATH=./memory.db
+USER_PHONE=919876543210
+EOF
 ```
 
 3) Run the server
@@ -40,6 +46,7 @@ python -m mcp_memory.server
 5) Connect from Puch
 ```
 /mcp connect https://your-domain.ngrok.app/mcp your_secret_token_here
+# The server exposes a required 'validate' tool that returns USER_PHONE for authentication.
 ```
 
 ### Docker (local)
@@ -100,12 +107,29 @@ HTTPS (recommended):
 - Simplest: attach an AWS Application Load Balancer with ACM cert for `mcp.tanmay.space`, forward to instance:80
 - Or terminate TLS inside NGINX (use certbot and mount certs into the nginx container)
 
-## Tools (Phase 1)
+## Tools
+
+Memory tools:
 - `memory_store(content: str, tags?: list[str], context?: str)`
 - `memory_query(query: str, limit?: int)`
 - `memory_list(limit?: int, offset?: int)`
 - `memory_update(id: int, content?: str, tags?: list[str], context?: str)`
 - `memory_delete(id: int)`
+- `memory_export()`
+- `memory_stats()`
+- `memory_context(context: str, limit?: int)`
+- `memory_summary(range?: today|yesterday|last_week)`
+
+LinkBrain tools:
+- `link_save(url: str, tags?: list[str], title?: str)` → fetch + clean + store article
+- `link_fetch(url: str)` → returns cleaned `content`, metadata, and any stored `summary`
+- `link_summarize(url: str, style?: str)` → returns cleaned `content` ready for LLM summarization
+- `link_store_summary(url: str, summary: str)` → persist LLM-generated summary
+- `link_get_summary(url: str)` → fast path to retrieve stored summary
+- `link_list(limit?: int, offset?: int, tag?: str)`
+- `link_query(query: str, limit?: int)`
+- `link_delete(id: int)`
+- `link_digest(limit?: int = 5, tag?: str)` → returns recent links with stored summaries for composing recaps
 
 All tools accept optional user scoping via header `X-User-Id`; otherwise default scope is `default`.
 
@@ -115,6 +139,17 @@ All tools accept optional user scoping via header `X-User-Id`; otherwise default
   - `tools/call` → executes a tool by name
 - Health endpoint: `/health`
 - Env: `AUTH_TOKEN` (required), `HOST`, `PORT`, `DB_PATH` (optional)
+
+### LLM-led summarization flow (recommended)
+1) `link_save(url)` or `link_fetch(url)` to obtain `content`
+2) Use Puch’s own LLM to summarize the `content`
+3) Persist via `link_store_summary(url, summary)`
+4) Retrieve later with `link_get_summary(url)` or compile a recap with `link_digest()`
+
+Example prompts to bias the assistant:
+- "save this link to my reading list"
+- "summarize this Medium post and store the summary"
+- "what did I save about transformers last week?" → `link_query` + `link_digest`
 
 ## References
 - Puch Hackathon: `https://puch.ai/hack`
